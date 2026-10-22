@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Poisoning Detector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: linear-gradient(135deg, #0a0e27 0%, #0f1629 50%, #1a1a3e 100%);
+            color: #e8ecf1;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #06b6d4 0%, #a855f7 50%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #8892a0;
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .status-text {
+            color: #10b981;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 0.7rem 1.4rem;
+            border: 1px solid #1e293b;
+            background: #0f1629;
+            color: #e8ecf1;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        button:hover {
+            border-color: #06b6d4;
+            color: #06b6d4;
+        }
+
+        button.active {
+            background: #06b6d4;
+            color: #0a0e27;
+            border-color: #06b6d4;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .panel {
+            background: #0f1629;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .panel h2 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 1rem;
+            color: #8892a0;
+        }
+
+        .stream {
+            height: 300px;
+            overflow-y: auto;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            border: 1px solid #1e293b;
+        }
+
+        .item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            display: flex;
+            gap: 0.75rem;
+            animation: slideIn 0.4s ease;
+            border-left: 3px solid;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .item.good {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: #10b981;
+            color: #10b981;
+        }
+
+        .item.danger {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .item.detected {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: #f59e0b;
+            color: #f59e0b;
+        }
+
+        .item.filtered {
+            background: rgba(6, 182, 212, 0.15);
+            border-color: #06b6d4;
+            color: #06b6d4;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .metric {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 1.25rem;
+            text-align: center;
+            border: 1px solid #1e293b;
+        }
+
+        .metric-num {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #06b6d4;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #8892a0;
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .comp-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid #1e293b;
+        }
+
+        .comp-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: #8892a0;
+            margin-bottom: 0.75rem;
+        }
+
+        .comp-result {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .result-good {
+            color: #10b981;
+        }
+
+        .result-bad {
+            color: #ef4444;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #06b6d4;
+        }
+
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Data Poisoning Detector</h1>
+        <p class="subtitle">Real-time detection and filtering of corrupted data</p>
+        
+        <div class="status">
+            <div class="dot"></div>
+            <div class="status-text">ACTIVE - Processing data</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="playBtn" onclick="togglePlay()">Start</button>
+        <button onclick="resetDemo()">Reset</button>
+    </div>
+
+    <div class="grid">
+        <div>
+            <div class="panel">
+                <h2>Input Stream</h2>
+                <div class="stream" id="rawStream"></div>
+            </div>
+
+            <div class="panel">
+                <h2>Metrics</h2>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-num" id="totalNum">0</div>
+                        <div class="metric-label">Records</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-num" id="poisonNum">0</div>
+                        <div class="metric-label">Threats</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-num" id="rateNum">0%</div>
+                        <div class="metric-label">Detection</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-num" id="safeNum">0</div>
+                        <div class="metric-label">Safe</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="panel">
+                <h2>Filtered Output</h2>
+                <div class="stream" id="filteredStream"></div>
+            </div>
+
+            <div class="panel">
+                <h2>System Comparison</h2>
+                <div class="comparison">
+                    <div class="comp-box">
+                        <div class="comp-title">No Detection</div>
+                        <div class="comp-result result-bad">3 Failed</div>
+                    </div>
+                    <div class="comp-box">
+                        <div class="comp-title">With Detection</div>
+                        <div class="comp-result result-good">100% Safe</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var data = [
+        { value: "user_id: 12847", type: "good" },
+        { value: "email: valid@company.com", type: "good" },
+        { value: "amount: 150.00", type: "good" },
+        { value: "DROP TABLE users;--", type: "danger" },
+        { value: "phone: +1-555-0123", type: "good" },
+        { value: "status: active", type: "good" },
+        { value: "script tag with xss", type: "danger" },
+        { value: "date: 2026-01-15", type: "good" },
+        { value: "region: NORTH_AMERICA", type: "good" },
+        { value: "eval code injection", type: "danger" },
+        { value: "customer_name: John Doe", type: "good" },
+        { value: "transaction_id: TXN-98765", type: "good" }
+    ];
+
+    var stats = {
+        total: 0,
+        poison: 0,
+        safe: 0
+    };
+
+    var playing = false;
+    var index = 0;
+    var timer = null;
+
+    function makeItem(value, type) {
+        var div = document.createElement("div");
+        div.className = "item " + type;
+        
+        var icon = type === "good" ? "OK" : type === "danger" ? "WARN" : type === "detected" ? "FOUND" : "BLOCK";
+        div.textContent = "[" + icon + "] " + value;
+        
+        return div;
+    }
+
+    function updateMetrics() {
+        document.getElementById("totalNum").textContent = stats.total;
+        document.getElementById("poisonNum").textContent = stats.poison;
+        document.getElementById("safeNum").textContent = stats.safe;
+        
+        var rate = stats.total > 0 ? Math.round(stats.poison * 100 / stats.total) : 0;
+        document.getElementById("rateNum").textContent = rate + "%";
+    }
+
+    function tick() {
+        if (!playing) return;
+
+        if (index >= data.length) {
+            index = 0;
+            setTimeout(tick, 1500);
+            return;
+        }
+
+        var item = data[index];
+        var raw = document.getElementById("rawStream");
+        var filtered = document.getElementById("filteredStream");
+
+        stats.total++;
+
+        var rawItem = makeItem(item.value, item.type);
+        raw.insertBefore(rawItem, raw.firstChild);
+
+        if (raw.children.length > 10) {
+            raw.removeChild(raw.lastChild);
+        }
+
+        if (item.type === "danger") {
+            stats.poison++;
+
+            setTimeout(function() {
+                if (!playing) return;
+                var detected = makeItem("DETECTED: " + item.value.substring(0, 20) + "...", "detected");
+                filtered.insertBefore(detected, filtered.firstChild);
+
+                setTimeout(function() {
+                    if (!playing) return;
+                    var blocked = makeItem("DATA BLOCKED", "filtered");
+                    filtered.insertBefore(blocked, filtered.firstChild);
+
+                    if (filtered.children.length > 10) {
+                        filtered.removeChild(filtered.lastChild);
+                    }
+                }, 300);
+
+                if (filtered.children.length > 10) {
+                    filtered.removeChild(filtered.lastChild);
+                }
+            }, 200);
+        } else {
+            stats.safe++;
+
+            setTimeout(function() {
+                if (!playing) return;
+                var safeItem = makeItem(item.value, "good");
+                filtered.insertBefore(safeItem, filtered.firstChild);
+
+                if (filtered.children.length > 10) {
+                    filtered.removeChild(filtered.lastChild);
+                }
+            }, 100);
+        }
+
+        updateMetrics();
+        index++;
+        
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(tick, 700);
+    }
+
+    function togglePlay() {
+        playing = !playing;
+        var btn = document.getElementById("playBtn");
+        btn.textContent = playing ? "Pause" : "Start";
+        btn.className = playing ? "active" : "";
+        if (playing) tick();
+    }
+
+    function resetDemo() {
+        playing = false;
+        index = 0;
+        stats = { total: 0, poison: 0, safe: 0 };
+        document.getElementById("rawStream").innerHTML = "";
+        document.getElementById("filteredStream").innerHTML = "";
+        document.getElementById("playBtn").textContent = "Start";
+        document.getElementById("playBtn").className = "";
+        if (timer) clearTimeout(timer);
+        updateMetrics();
+    }
+
+    updateMetrics();
+</script>
+
+</body>
+</html>
